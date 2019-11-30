@@ -73,18 +73,60 @@ var cycolors = [];
 var cyindicies = [];
 
 var data;
+var susanVertices = [];
+var susanColors = [];
+var susanIndices = [];
+var susanNormals = [];
 
 function initJSON() {
   var request = new XMLHttpRequest();
-  request.open("GET", "Susan.json");
+  request.open("GET", "https://kiefergarrett.github.io/WebGL_Lab5/Susan.json");
   request.onreadystatechange =
     function() {
       if (request.readyState == 4) {
         console.log("state = " + request.readyState);
         data = JSON.parse(request.responseText);
+
+        susanVertices = data.meshes[0].vertices;
+        susanColors = data.meshes[0].colors[0];
+        susanIndices = [].concat.apply([], data.meshes[0].faces);
+        susanNormals = data.meshes[0].normals;
+
+        initSusanBuffer();
+
       }
-    }
+    };
   request.send();
+}
+
+function initSusanBuffer() {
+
+  susanVertexPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanVertices), gl.STATIC_DRAW);
+  susanVertexPositionBuffer.itemSize = 3;
+  susanVertexPositionBuffer.numItems = susanVertices.length/3;
+
+  susanVertexNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexNormalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanNormals), gl.STATIC_DRAW);
+  susanVertexNormalBuffer.itemSize = 3;
+  susanVertexNormalBuffer.numItems = susanNormals.length / 3;
+
+  susanVertexIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, susanVertexIndexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(susanIndices), gl.STATIC_DRAW);
+  susanVertexIndexBuffer.itemSize = 1;
+  susanVertexIndexBuffer.numItems = susanIndices.length;
+
+  susanVertexColorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexColorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanColors), gl.STATIC_DRAW);
+  susanVertexColorBuffer.itemSize = 4;
+  susanVertexColorBuffer.numItems = susanColors.length/4;
+
+  console.log("Loaded");
+
 }
 
 function InitCylinder(nslices, nstacks) {
@@ -415,6 +457,7 @@ function initCubeBuffers() {
 
 function initBuffers() {
 
+  initSusanBuffer();
   initCubeBuffers();
   initCYBuffers();
   InitSphereBuffers();
@@ -540,6 +583,37 @@ function drawCylinder(matrix) {
 
 }
 
+function drawSusan(matrix) {
+  var mat_diffuse = [0, 0, 1, 1];
+  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
+  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
+  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
+
+  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
+
+  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexPositionBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, susanVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexNormalBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, susanVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexColorBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, susanVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+
+  // draw elementary arrays - triangle indices
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, susanVertexIndexBuffer);
+
+  gl.drawElements(gl.TRIANGLES, susanVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+}
+
 var vMatrix = mat4.create(); // view matrix
 var mMatrix = mat4.create();
 var mMatrix1 = mat4.create(); // model matrix
@@ -571,7 +645,7 @@ function drawScene() {
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  drawCylinder(model);
+  drawSusan(model);
 
   model = mat4.multiply(model, mMatrix1);
 
@@ -584,18 +658,18 @@ function drawScene() {
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
   drawSphere(model);
-
-  model = mat4.multiply(model, mMatrix2);
-
-  mat4.identity(nMatrix);
-  nMatrix = mat4.multiply(nMatrix, vMatrix);
-  nMatrix = mat4.multiply(nMatrix, model);
-  nMatrix = mat4.inverse(nMatrix);
-  nMatrix = mat4.transpose(nMatrix);
-
-  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-
-  drawCube(model);
+  //
+  // model = mat4.multiply(model, mMatrix2);
+  //
+  // mat4.identity(nMatrix);
+  // nMatrix = mat4.multiply(nMatrix, vMatrix);
+  // nMatrix = mat4.multiply(nMatrix, model);
+  // nMatrix = mat4.inverse(nMatrix);
+  // nMatrix = mat4.transpose(nMatrix);
+  //
+  // shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+  //
+  // drawCube(model);
 
 }
 
@@ -606,6 +680,7 @@ function webGLStart() {
   var canvas = document.getElementById("code04-canvas");
   initGL(canvas);
   initShaders();
+  initJSON();
 
   gl.enable(gl.DEPTH_TEST);
 
@@ -645,8 +720,8 @@ function webGLStart() {
   mat4.identity(mMatrix);
   mat4.identity(mMatrix1);
   mat4.translate(mMatrix1, [0, 0, 2]);
-  mat4.identity(mMatrix2);
-  mat4.translate(mMatrix2, [0, 0, -4]);
+  // mat4.identity(mMatrix2);
+  // mat4.translate(mMatrix2, [0, 0, -4]);
 
   drawScene();
 
@@ -833,7 +908,7 @@ function onDocumentMouseDown(event) {
 
 var loop = function () {
 
-    mMatrix = mat4.rotate(mMatrix, degToRad(1), [1,1,1]);
+    mMatrix = mat4.rotate(mMatrix, degToRad(1), [0,1,0]);
 
     drawScene();
 
