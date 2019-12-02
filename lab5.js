@@ -5,9 +5,6 @@ var zCameraPos = 10;
 var horizontalAngle = 0;
 var verticalAngle = 0;
 var rotationSpeed = 4;
-var ly = 0;
-var lx = 0;
-var lz = 0;
 var xAngle = 0;
 var yAngle = 0;
 var zAngle = 0;
@@ -19,17 +16,58 @@ var lastYRotate = 0;
 var pitch = 0;
 var yaw = 0;
 var roll = 0;
+var use_texture = 0;
+var switch_Texture = 1;
+
+var brick = "https://kiefergarrett.github.io/WebGL_Lab5/brick.png";
+var posx = "https://kiefergarrett.github.io/WebGL_Lab5/posx.jpg";
+var posy = "https://kiefergarrett.github.io/WebGL_Lab5/posy.jpg";
+var posz = "https://kiefergarrett.github.io/WebGL_Lab5/posz.jpg";
+var negx = "https://kiefergarrett.github.io/WebGL_Lab5/negx.jpg";
+var negy = "https://kiefergarrett.github.io/WebGL_Lab5/negy.jpg";
+var negz = "https://kiefergarrett.github.io/WebGL_Lab5/negz.jpg";
+
 
 // set up the parameters for lighting
 var light_ambient = [0, 0, 0, 1];
 var light_diffuse = [0.8, 0.8, 0.8, 1];
 var light_specular = [1, 1, 1, 1];
-var light_pos = [lx, ly, lz, 1]; // eye space position
+var light_pos = [0, 0, 0, 1]; 
 
-var mat_ambient = [1, 1, 1, 1];
-var mat_diffuse = [0, 0, 1, 1];
+var mat_ambient = [0, 0, 0, 1];
+var mat_diffuse = [1, 1, 0, 1];
 var mat_specular = [0.9, 0.9, 0.9, 1];
-var mat_shine = [100];
+var mat_shine = [50];
+
+//////////// Buffer parameters /////////////////
+var cubeVertexPositionBuffer;
+var cubeVertexNormalBuffer;
+var cubeVertexTexCoordsBuffer;
+var cubeVertexColorBuffer;
+var cubeVertexIndexBuffer;
+
+var posxWallTexture;
+var negxWallTexture;
+var posyWallTexture;
+var negyWallTexture;
+var poszWallTexture;
+var negzWallTexture;
+
+/////////// Scene Matrix Parameters ///////////////
+
+var posxM = mat4.create();
+var posyM = mat4.create();
+var poszM = mat4.create();
+var negxM = mat4.create();
+var negyM = mat4.create();
+var negzM = mat4.create();
+
+var envMatrix = mat4.create();
+var mMatrix = mat4.create();
+var vMatrix = mat4.create(); // view matrix
+var pMatrix = mat4.create(); //projection matrix
+var nMatrix = mat4.create(); // normal matrix
+var v2wMatrix = mat4.create(); // eye space to world space matrix
 
 //////////// Init OpenGL Context etc. ///////////////
 
@@ -44,258 +82,351 @@ function initGL(canvas) {
   }
 }
 
-///////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
+function webGLStart() {
+  var canvas = document.getElementById("code04-canvas");
+  initGL(canvas);
+  initShaders();
+
+  gl.enable(gl.DEPTH_TEST);
+
+  shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+  gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+  shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+  gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
+  shaderProgram.vertexTexCoordsAttribute = gl.getAttribLocation(shaderProgram, "aVertexTexCoords");
+  gl.enableVertexAttribArray(shaderProgram.vertexTexCoordsAttribute);
+
+  shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+  gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+
+  shaderProgram.mMatrixUniform = gl.getUniformLocation(shaderProgram, "uMMatrix");
+  shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
+  shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+  shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+  shaderProgram.v2wMatrixUniform = gl.getUniformLocation(shaderProgram, "uV2WMatrix");
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+  shaderProgram.ambient_coefUniform = gl.getUniformLocation(shaderProgram, "ambient_coef");
+  shaderProgram.diffuse_coefUniform = gl.getUniformLocation(shaderProgram, "diffuse_coef");
+  shaderProgram.specular_coefUniform = gl.getUniformLocation(shaderProgram, "specular_coef");
+  shaderProgram.shininess_coefUniform = gl.getUniformLocation(shaderProgram, "mat_shininess");
+
+  shaderProgram.light_ambientUniform = gl.getUniformLocation(shaderProgram, "light_ambient");
+  shaderProgram.light_diffuseUniform = gl.getUniformLocation(shaderProgram, "light_diffuse");
+  shaderProgram.light_specularUniform = gl.getUniformLocation(shaderProgram, "light_specular");
+
+  shaderProgram.textureUniform = gl.getUniformLocation(shaderProgram, "myTexture");
+  shaderProgram.cube_map_textureUniform = gl.getUniformLocation(shaderProgram, "cubeMap");
+  shaderProgram.use_textureUniform = gl.getUniformLocation(shaderProgram, "use_texture");
+
+  initBuffers();
+
+  posxWallTexture = texture2D(posx);
+  negxWallTexture = texture2D(negx);
+  posyWallTexture = texture2D(posy);
+  negyWallTexture = texture2D(negy);
+  poszWallTexture = texture2D(posz);
+  negzWallTexture = texture2D(negz);
+
+  initCubeMap();
+
+  gl.clearColor(1, 1, 1, 1.0);
+
+  document.addEventListener('mousedown', onDocumentMouseDown, false);
+  document.addEventListener('keydown', onKeyDown, false);
+
+  mat4.identity(posxM);
+  mat4.translate(posxM, [7.5, 0, 0]);
+  mat4.rotate(posxM, degToRad(270), [0, 1, 0]);
+  mat4.scale(posxM, [15, 15, 15]);
+
+  mat4.identity(posyM);
+  mat4.translate(posyM, [0, 7.5, 0]);
+  mat4.rotate(posyM, degToRad(270), [1, 0, 0]);
+  mat4.rotate(posyM, degToRad(180), [0, 1, 0]);
+  mat4.scale(posyM, [15, 15, 15]);
+
+  mat4.identity(poszM);
+  mat4.translate(poszM, [0, 0, 7.5]);
+  mat4.rotate(poszM, degToRad(180), [0, 1, 0]);
+  mat4.scale(poszM, [15, 15, 15]);
+
+  mat4.identity(negxM);
+  mat4.translate(negxM, [-7.5, 0, 0]);
+  mat4.rotate(negxM, degToRad(90), [0, 1, 0]);
+  mat4.scale(negxM, [15, 15, 15]);
+
+  mat4.identity(negyM);
+  mat4.translate(negyM, [0, -7.5, 0]);
+  mat4.rotate(negyM, degToRad(90), [1, 0, 0]);
+  mat4.rotate(negyM, degToRad(180), [0, 1, 0]);
+  mat4.scale(negyM, [15, 15, 15]);
+
+  mat4.identity(negzM);
+  mat4.translate(negzM, [0, 0, -7.5]);
+  mat4.scale(negzM, [15, 15, 15]);
+
+  mat4.identity(mMatrix);
+  mat4.translate(mMatrix, [0, 0, -5]);
+  mat4.scale(mMatrix, [1,1,1]);
+
+  drawScene();
+
+  requestAnimationFrame(loop);
+}
+
+function initBuffers() {
+
+  initSQBuffers();
+  initCubeBuffers();
+
+}
+
+function setMatrixUniforms(matrix) {
+  gl.uniformMatrix4fv(shaderProgram.mMatrixUniform, false, matrix);
+  gl.uniformMatrix4fv(shaderProgram.vMatrixUniform, false, vMatrix);
+  gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+  gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, nMatrix);
+  gl.uniformMatrix4fv(shaderProgram.v2wMatrixUniform, false, v2wMatrix);
+}
+
+function degToRad(degrees) {
+  return degrees * Math.PI / 180;
+}
+
+function PushMatrix(stack, matrix) {
+  var copy = mat4.create();
+  mat4.set(matrix, copy);
+  stack.push(copy);
+}
+
+function PopMatrix(stack) {
+  if (stack.length == 0) {
+    throw "Invalid popMatrix!";
+  }
+  var copy = stack.pop();
+  return copy;
+}
+
+var texture2D = function(textureSource) {
+  var texture;
+  texture = gl.createTexture();
+  texture.image = new Image();
+  texture.image.crossOrigin = "anonymous";
+  texture.image.onload = function() { handle2DTextureLoaded(texture); };
+  texture.image.src = textureSource;
+  console.log("loading texture....");
+  return texture;
+};
+
+function handle2DTextureLoaded(texture) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+var cubemapTexture;
+
+function initCubeMap() {
+    cubemapTexture = gl.createTexture();
+
+    cubemapTexture.imagePosX = new Image();
+    cubemapTexture.imageNegX = new Image();
+    cubemapTexture.imagePosY = new Image();
+    cubemapTexture.imageNegY = new Image();
+    cubemapTexture.imagePosZ = new Image();
+    cubemapTexture.imageNegZ = new Image();
+
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTexture);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+    cubemapTexture.imagePosX.crossOrigin = "anonymous";
+    cubemapTexture.imagePosX.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 0); };
+    cubemapTexture.imagePosX.src = posx;
+
+    cubemapTexture.imageNegX.crossOrigin = "anonymous";
+    cubemapTexture.imageNegX.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 1); };
+    cubemapTexture.imageNegX.src = negx;
+
+    cubemapTexture.imagePosY.crossOrigin = "anonymous";
+    cubemapTexture.imagePosY.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 2); };
+    cubemapTexture.imagePosY.src = posy;
+
+    cubemapTexture.imageNegY.crossOrigin = "anonymous";
+    cubemapTexture.imageNegY.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 3); };
+    cubemapTexture.imageNegY.src = negy;
+
+    cubemapTexture.imagePosZ.crossOrigin = "anonymous";
+    cubemapTexture.imagePosZ.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 4); };
+    cubemapTexture.imagePosZ.src = posz;
+
+    cubemapTexture.imageNegZ.crossOrigin = "anonymous";
+    cubemapTexture.imageNegZ.onload = function() { handleCubemapTextureLoaded(cubemapTexture, 5); };
+    cubemapTexture.imageNegZ.src = negz;
+
+    console.log("loading cubemap texture....");
+}
+
+function handleCubemapTextureLoaded(texture, index) {
+
+    if (index == 0) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imagePosX);
+    }
+
+    if (index == 1) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imageNegX);
+    }
+
+    if (index == 2) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imagePosY);
+    }
+
+    if (index == 3) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imageNegY);
+    }
+
+    if (index == 4) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imagePosZ);
+    }
+
+    if (index == 5) {
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+		  texture.imageNegZ);
+    }
+}
 
 var squareVertexPositionBuffer;
 var squareVertexNormalBuffer;
 var squareVertexColorBuffer;
 var squareVertexIndexBuffer;
+var squareVertexTexCoordsBuffer;
 
-var cylinderVertexPositionBuffer;
-var cylinderVertexNormalBuffer;
-var cylinderVertexColorBuffer;
-var cylinderVertexIndexBuffer;
+var sqvertices = [];
+var sqnormals = [];
+var sqindices = [];
+var sqcolors = [];
+var sqTexCoords=[];
 
-var sphereVertexPositionBuffer;
-var sphereVertexNormalBuffer;
-var sphereVertexColorBuffer;
-var sphereVertexIndexBuffer;
-
-var susanVertexPositionBuffer;
-var susanVertexNormalBuffer;
-var susanVertexColorBuffer;
-var susanVertexIndexBuffer;
-
-var cyverts = [];
-var cynormals = [];
-var cycolors = [];
-var cyindicies = [];
-
-var data;
-var susanVertices = [];
-var susanColors = [];
-var susanIndices = [];
-var susanNormals = [];
-
-function initJSON() {
-  var request = new XMLHttpRequest();
-  request.open("GET", "https://kiefergarrett.github.io/WebGL_Lab5/Susan.json");
-  request.onreadystatechange =
-    function() {
-      if (request.readyState == 4) {
-        console.log("state = " + request.readyState);
-        data = JSON.parse(request.responseText);
-
-        susanVertices = data.meshes[0].vertices;
-        susanColors = data.meshes[0].colors[0];
-        susanIndices = [].concat.apply([], data.meshes[0].faces);
-        susanNormals = data.meshes[0].normals;
-
-        initSusanBuffer();
-
-      }
-    };
-  request.send();
+function InitSquare() {
+        sqvertices = [
+             0.5,  0.5,  0,
+	            -0.5,  0.5,  0,
+	             - 0.5, -0.5, 0,
+ 	             0.5, -0.5,  0,
+        ];
+	sqindices = [0,1,2, 0,2,3];
+        sqcolors = [
+            1.0, 0.0, 0.0, 1.0,
+            0.0, 1.0, 0.0, 1.0,
+            0.0, 0.0, 1.0, 1.0,
+            1.0, 0.0, 0.0, 1.0,
+        ];
+        sqnormals = [
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+        ];
+        sqTexCoords = [0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0];
 }
 
-function initSusanBuffer() {
 
-  susanVertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexPositionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanVertices), gl.STATIC_DRAW);
-  susanVertexPositionBuffer.itemSize = 3;
-  susanVertexPositionBuffer.numItems = susanVertices.length/3;
+function initSQBuffers() {
 
-  susanVertexNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexNormalBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanNormals), gl.STATIC_DRAW);
-  susanVertexNormalBuffer.itemSize = 3;
-  susanVertexNormalBuffer.numItems = susanNormals.length / 3;
+        InitSquare();
+        squareVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sqvertices), gl.STATIC_DRAW);
+        squareVertexPositionBuffer.itemSize = 3;
+        squareVertexPositionBuffer.numItems = 4;
 
-  susanVertexIndexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, susanVertexIndexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(susanIndices), gl.STATIC_DRAW);
-  susanVertexIndexBuffer.itemSize = 1;
-  susanVertexIndexBuffer.numItems = susanIndices.length;
+        squareVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sqnormals), gl.STATIC_DRAW);
+        squareVertexNormalBuffer.itemSize = 3;
+        squareVertexNormalBuffer.numItems = 4;
 
-  susanVertexColorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexColorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(susanColors), gl.STATIC_DRAW);
-  susanVertexColorBuffer.itemSize = 4;
-  susanVertexColorBuffer.numItems = susanColors.length/4;
+        squareVertexTexCoordsBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTexCoordsBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sqTexCoords), gl.STATIC_DRAW);
+        squareVertexTexCoordsBuffer.itemSize = 2;
+        squareVertexTexCoordsBuffer.numItems = 4;
 
-  console.log("Loaded");
+	      squareVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sqindices), gl.STATIC_DRAW);
+        squareVertexIndexBuffer.itemsize = 1;
+        squareVertexIndexBuffer.numItems = 6;
+
+        squareVertexColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sqcolors), gl.STATIC_DRAW);
+        squareVertexColorBuffer.itemSize = 4;
+        squareVertexColorBuffer.numItems = 4;
 
 }
 
-function InitCylinder(nslices, nstacks) {
-  var Dangle = 2 * Math.PI / (nslices - 1);
+function drawSquare(matrix, texture) {
 
-  for (j = 0; j < nstacks; j++)
-    for (i = 0; i < nslices; i++) {
-      var idx = j * nslices + i; // mesh[j][i]
-      var angle = Dangle * i;
-      cyverts.push(Math.cos(angle));
-      cyverts.push(Math.sin(angle));
-      cyverts.push(j * 3.0 / (nstacks - 1) - 1.5);
+  var mat_diffuse = [1, 0, 1, 1];
+  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
+  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
+  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
 
-      cynormals.push(Math.cos(angle));
-      cynormals.push(Math.sin(angle));
-      cynormals.push(0.0);
+  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
 
-      cycolors.push(Math.cos(angle));
-      cycolors.push(Math.sin(angle));
-      cycolors.push(j * 1.0 / (nstacks - 1));
-      cycolors.push(1.0);
-    }
-  // now create the index array
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-  nindices = (nstacks - 1) * 6 * (nslices + 1);
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexNormalBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, squareVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-  for (j = 0; j < nstacks - 1; j++)
-    for (i = 0; i <= nslices; i++) {
-      var mi = i % nslices;
-      var mi2 = (i + 1) % nslices;
-      var idx = (j + 1) * nslices + mi;
-      var idx2 = j * nslices + mi; // mesh[j][mi]
-      var idx3 = (j) * nslices + mi2;
-      var idx4 = (j + 1) * nslices + mi;
-      var idx5 = (j) * nslices + mi2;
-      var idx6 = (j + 1) * nslices + mi2;
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTexCoordsBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexTexCoordsAttribute, squareVertexTexCoordsBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-      cyindicies.push(idx);
-      cyindicies.push(idx2);
-      cyindicies.push(idx3);
-      cyindicies.push(idx4);
-      cyindicies.push(idx5);
-      cyindicies.push(idx6);
-    }
-}
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, squareVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-function initCYBuffers() {
+  // draw elementary arrays - triangle indices
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
 
-  var nslices = 100;
-  var nstacks = 50;
-  InitCylinder(nslices, nstacks);
+  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
+  gl.uniform1i(shaderProgram.use_textureUniform, use_texture);
 
-  cylinderVertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexPositionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cyverts), gl.STATIC_DRAW);
-  cylinderVertexPositionBuffer.itemSize = 3;
-  cylinderVertexPositionBuffer.numItems = nslices * nstacks;
+  gl.activeTexture(gl.TEXTURE1);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTexture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.cube_map_textureUniform, 1);   // pass the texture unit to the shader
 
-  cylinderVertexNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexNormalBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cynormals), gl.STATIC_DRAW);
-  cylinderVertexNormalBuffer.itemSize = 3;
-  cylinderVertexNormalBuffer.numItems = nslices * nstacks;
+  gl.activeTexture(gl.TEXTURE0);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_2D, texture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.textureUniform, 0);   // pass the texture unit to the shader
 
-  cylinderVertexIndexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderVertexIndexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cyindicies), gl.STATIC_DRAW);
-  cylinderVertexIndexBuffer.itemsize = 1;
-  cylinderVertexIndexBuffer.numItems = (nstacks - 1) * 6 * (nslices + 1);
-
-  cylinderVertexColorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexColorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cycolors), gl.STATIC_DRAW);
-  cylinderVertexColorBuffer.itemSize = 4;
-  cylinderVertexColorBuffer.numItems = nslices * nstacks;
-
-}
-
-var sphereVerts = [];
-var sphereNormals = [];
-var sphereColors = [];
-var sphereIndices = [];
-
-function InitSphere(nslices, radius) {
-
-  for (var i = 0; i <= nslices; i++) {
-    var theta = i * Math.PI / nslices;
-    var sinTheta = Math.sin(theta);
-    var cosTheta = Math.cos(theta);
-
-    for (var j = 0; j <= nslices; j++) {
-      var phi = j * 2 * Math.PI / nslices;
-      var sinPhi = Math.sin(phi);
-      var cosPhi = Math.cos(phi);
-
-      var x = cosPhi * sinTheta;
-      var y = cosTheta;
-      var z = sinPhi * sinTheta;
-
-
-      sphereVerts.push(radius * x);
-      sphereVerts.push(radius * y);
-      sphereVerts.push(radius * z);
-
-      sphereNormals.push(x);
-      sphereNormals.push(y);
-      sphereNormals.push(z);
-
-      sphereColors.push(radius * x);
-      sphereColors.push(radius * y);
-      sphereColors.push(radius * z);
-      sphereColors.push(1.0);
-    }
-  }
-
-  for (var i = 0; i < nslices; i++) {
-    for (var j = 0; j < nslices; j++) {
-      var v1 = (i * (nslices + 1)) + j;
-      var v2 = v1 + nslices + 1;
-
-      sphereIndices.push(v1);
-      sphereIndices.push(v2);
-      sphereIndices.push(v1 + 1);
-
-      sphereIndices.push(v2);
-      sphereIndices.push(v2 + 1);
-      sphereIndices.push(v1 + 1);
-    }
-  }
-
-}
-
-function InitSphereBuffers() {
-
-  var nslices = 100;
-  InitSphere(nslices, 1.5);
-
-  sphereVertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sphereVerts), gl.STATIC_DRAW);
-  sphereVertexPositionBuffer.itemSize = 3;
-  sphereVertexPositionBuffer.numItems = nslices * nslices;
-
-  sphereVertexNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sphereNormals), gl.STATIC_DRAW);
-  sphereVertexNormalBuffer.itemSize = 3;
-  sphereVertexNormalBuffer.numItems = nslices * nslices;
-
-  sphereVertexIndexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sphereIndices), gl.STATIC_DRAW);
-  sphereVertexIndexBuffer.itemsize = 1;
-  sphereVertexIndexBuffer.numItems = (nslices - 1) * 6 * (nslices + 1);
-
-  sphereVertexColorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexColorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sphereColors), gl.STATIC_DRAW);
-  sphereVertexColorBuffer.itemSize = 4;
-  sphereVertexColorBuffer.numItems = nslices * nslices;
-
+  gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
 ////////////////    Initialize VBO  ////////////////////////
 
 function initCubeBuffers() {
 
-  squareVertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+  cubeVertexPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
   var vertices = [
     // Top
     -1.0, 1.0, -1.0,
@@ -333,11 +464,11 @@ function initCubeBuffers() {
     1.0, -1.0, -1.0
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-  squareVertexPositionBuffer.itemSize = 3;
-  squareVertexPositionBuffer.numItems = 24;
+  cubeVertexPositionBuffer.itemSize = 3;
+  cubeVertexPositionBuffer.numItems = 24;
 
-  squareVertexNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexNormalBuffer);
+  cubeVertexNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
   var normals = [
     // Top
     0.0, 1.0, 0.0,
@@ -376,9 +507,17 @@ function initCubeBuffers() {
   ];
 
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-  squareVertexNormalBuffer.itemSize = 3;
-  squareVertexNormalBuffer.numItems = 24;
+  cubeVertexNormalBuffer.itemSize = 3;
+  cubeVertexNormalBuffer.numItems = 24;
 
+  cubeVertexTexCoordsBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTexCoordsBuffer);
+
+  sqTexCoords = [0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0, 0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0];
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sqTexCoords), gl.STATIC_DRAW);
+  cubeVertexTexCoordsBuffer.itemSize = 2;
+  cubeVertexTexCoordsBuffer.numItems = 24;
 
   var indices = [
     // Top
@@ -405,14 +544,15 @@ function initCubeBuffers() {
     21, 20, 22,
     22, 20, 23
   ];
-  squareVertexIndexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-  squareVertexIndexBuffer.itemsize = 1;
-  squareVertexIndexBuffer.numItems = 36;
 
-  squareVertexColorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
+  cubeVertexIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+  cubeVertexIndexBuffer.itemsize = 1;
+  cubeVertexIndexBuffer.numItems = 36;
+
+  cubeVertexColorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
   var colors = [
     // Top
     0.5, 0.5, 0.5, 1.0,
@@ -451,79 +591,11 @@ function initCubeBuffers() {
     0.5, 0.5, 1.0, 1.0
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-  squareVertexColorBuffer.itemSize = 4;
-  squareVertexColorBuffer.numItems = 24;
+  cubeVertexColorBuffer.itemSize = 4;
+  cubeVertexColorBuffer.numItems = 24;
 }
 
-function initBuffers() {
-
-  initSusanBuffer();
-  initCubeBuffers();
-  initCYBuffers();
-  InitSphereBuffers();
-
-}
-
-///////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////
-
-function setMatrixUniforms(matrix) {
-  gl.uniformMatrix4fv(shaderProgram.mMatrixUniform, false, matrix);
-  gl.uniformMatrix4fv(shaderProgram.vMatrixUniform, false, vMatrix);
-  gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-  gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, nMatrix);
-}
-
-function degToRad(degrees) {
-  return degrees * Math.PI / 180;
-}
-
-function PushMatrix(stack, matrix) {
-  var copy = mat4.create();
-  mat4.set(matrix, copy);
-  stack.push(copy);
-}
-
-function PopMatrix(stack) {
-  if (stack.length == 0) {
-    throw "Invalid popMatrix!";
-  }
-  var copy = stack.pop();
-  return copy;
-}
-
-
-function drawSphere(matrix) {
-  var mat_diffuse = [0, 1, 1, 1];
-  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
-  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
-  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
-
-  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
-
-  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, sphereVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, sphereVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexColorBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, sphereVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  // draw elementary arrays - triangle indices
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
-
-  gl.drawElements(gl.TRIANGLES, sphereVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-}
-
-function drawCube(matrix) {
+function drawCube(matrix, texture) {
   var mat_diffuse = [1, 0, 1, 1];
   gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
   gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
@@ -535,92 +607,35 @@ function drawCube(matrix) {
   gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
   gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
 
-  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexNormalBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, squareVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTexCoordsBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexTexCoordsAttribute, cubeVertexTexCoordsBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, squareVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  // draw elementary arrays - triangle indices
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
-
-  gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-}
-
-function drawCylinder(matrix) {
-  var mat_diffuse = [0, 0, 1, 1];
-  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
-  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
-  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
-
-  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
-
-  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexPositionBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cylinderVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexNormalBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, cylinderVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, cylinderVertexColorBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, cylinderVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, cubeVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
   // draw elementary arrays - triangle indices
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderVertexIndexBuffer);
-
-  gl.drawElements(gl.TRIANGLES, cylinderVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-}
-
-function drawSusan(matrix) {
-  var mat_diffuse = [0, 0, 1, 1];
-  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
-  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
-  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
-
-  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
-  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
-  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
 
   setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
+  gl.uniform1i(shaderProgram.use_textureUniform, use_texture);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexPositionBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, susanVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  gl.activeTexture(gl.TEXTURE1);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTexture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.cube_map_textureUniform, 1);   // pass the texture unit to the shader
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexNormalBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, susanVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  gl.activeTexture(gl.TEXTURE0);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_2D, texture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.textureUniform, 0);   // pass the texture unit to the shader
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, susanVertexColorBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, susanVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-
-  // draw elementary arrays - triangle indices
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, susanVertexIndexBuffer);
-
-  gl.drawElements(gl.TRIANGLES, susanVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
+  gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
-var vMatrix = mat4.create(); // view matrix
-var mMatrix = mat4.create();
-var mMatrix1 = mat4.create(); // model matrix
-var mMatrix2 = mat4.create();
-var mMatrix3 = mat4.create();
-var pMatrix = mat4.create(); //projection matrix
-var nMatrix = mat4.create(); // normal matrix
 var Z_angle = 0.0;
 
 ///////////////////////////////////////////////////////////////
@@ -629,121 +644,136 @@ function drawScene() {
   gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  pMatrix = mat4.perspective(60, 1.0, 0.1, 100, pMatrix); // set up the projection matrix
-  vMatrix = mat4.lookAt([0, 0, 10], [yaw, pitch, 0], [0, 1, 0], vMatrix); // set up the view matrix
-  vMatrix = mat4.rotate(vMatrix, degToRad(roll), [0, 0, 1]);
+  pMatrix = mat4.perspective(90, 1.0, 0.1, 200, pMatrix); // set up the projection matrix
 
-  var model = mat4.create();
-  mat4.identity(model);
-  model = mat4.multiply(model, mMatrix);
+  vMatrix = mat4.lookAt([0, 0, 0], [0, 0, 0], [0, 1, 0], vMatrix); // set up the view matrix
 
-  mat4.identity(nMatrix);
-  nMatrix = mat4.multiply(nMatrix, vMatrix);
-  nMatrix = mat4.multiply(nMatrix, model);
-  nMatrix = mat4.inverse(nMatrix);
-  nMatrix = mat4.transpose(nMatrix);
+  vMatrix = mat4.rotateY(vMatrix,degToRad(yaw));
+  vMatrix = mat4.rotateX(vMatrix,degToRad(pitch));
 
-  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+  //var model = mat4.create();
+  //mat4.identity(model);
+  //model = mat4.multiply(model, mMatrix);
 
-  drawSusan(model);
-
-  model = mat4.multiply(model, mMatrix1);
+  drawSixWallEnv();
 
   mat4.identity(nMatrix);
   nMatrix = mat4.multiply(nMatrix, vMatrix);
-  nMatrix = mat4.multiply(nMatrix, model);
+  nMatrix = mat4.multiply(nMatrix, mMatrix);
   nMatrix = mat4.inverse(nMatrix);
   nMatrix = mat4.transpose(nMatrix);
 
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  drawSphere(model);
-  //
-  // model = mat4.multiply(model, mMatrix2);
-  //
-  // mat4.identity(nMatrix);
-  // nMatrix = mat4.multiply(nMatrix, vMatrix);
-  // nMatrix = mat4.multiply(nMatrix, model);
-  // nMatrix = mat4.inverse(nMatrix);
-  // nMatrix = mat4.transpose(nMatrix);
-  //
-  // shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-  //
-  // drawCube(model);
-
+  drawCube(mMatrix, posxWallTexture);
 }
 
+function drawSixWallEnv() {
 
-///////////////////////////////////////////////////////////////
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, posxM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
 
-function webGLStart() {
-  var canvas = document.getElementById("code04-canvas");
-  initGL(canvas);
-  initShaders();
-  initJSON();
-
-  gl.enable(gl.DEPTH_TEST);
-
-  shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-  gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-  shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
-  gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
-
-  shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
-  gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
-
-  shaderProgram.mMatrixUniform = gl.getUniformLocation(shaderProgram, "uMMatrix");
-  shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
-  shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-  shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-  shaderProgram.ambient_coefUniform = gl.getUniformLocation(shaderProgram, "ambient_coef");
-  shaderProgram.diffuse_coefUniform = gl.getUniformLocation(shaderProgram, "diffuse_coef");
-  shaderProgram.specular_coefUniform = gl.getUniformLocation(shaderProgram, "specular_coef");
-  shaderProgram.shininess_coefUniform = gl.getUniformLocation(shaderProgram, "mat_shininess");
 
-  shaderProgram.light_ambientUniform = gl.getUniformLocation(shaderProgram, "light_ambient");
-  shaderProgram.light_diffuseUniform = gl.getUniformLocation(shaderProgram, "light_diffuse");
-  shaderProgram.light_specularUniform = gl.getUniformLocation(shaderProgram, "light_specular");
+  use_texture = switch_Texture;
 
-  //initJSON();
+  drawSquare(posxM, posxWallTexture);
 
-  initBuffers();
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, posyM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
 
-  gl.clearColor(1, 1, 1, 1.0);
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
 
-  document.addEventListener('mousedown', onDocumentMouseDown, false);
-  document.addEventListener('keydown', onKeyDown, false);
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  mat4.identity(mMatrix);
-  mat4.identity(mMatrix1);
-  mat4.translate(mMatrix1, [0, 0, 2]);
-  // mat4.identity(mMatrix2);
-  // mat4.translate(mMatrix2, [0, 0, -4]);
+  use_texture = switch_Texture;
 
-  drawScene();
+  drawSquare(posyM, posyWallTexture);
 
-  requestAnimationFrame(loop);
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, poszM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  use_texture = switch_Texture;
+
+  drawSquare(poszM, poszWallTexture);
+
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, negxM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  use_texture = switch_Texture;
+
+  drawSquare(negxM, negxWallTexture);
+
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, negyM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  use_texture = switch_Texture;
+
+  drawSquare(negyM, negyWallTexture);
+
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, negzM);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  use_texture = switch_Texture;
+
+  drawSquare(negzM, negzWallTexture);
+
 }
 
 function BG(red, green, blue) {
   gl.clearColor(red, green, blue, 1.0);
-  drawScene();
-}
-
-function redraw() {
-  gl.clearColor(1, 1, 1, 1.0);
-  Z_angle = 0;
-  xAngle = 0;
-  yAngle = 0;
-  zAngle = 0;
-  cubeScale = 1;
-  document.getElementById('cubeScale').value = 0;
-  document.getElementById('xRotate').value = 0;
-  document.getElementById('yRotate').value = 0;
-  document.getElementById('zRotate').value = 0;
   drawScene();
 }
 
@@ -757,15 +787,6 @@ function Level2() {
 
 function Level3() {
   level = 3;
-}
-
-function redraw() {
-  level = 1;
-  roll = 0;
-  yaw = 0;
-  pitch = 0;
-
-  drawScene();
 }
 
 function onKeyDown(event) {
@@ -889,7 +910,6 @@ function onDocumentMouseOut(event) {
   document.removeEventListener('mouseout', onDocumentMouseOut, false);
 }
 
-
 /**
  * Sets the event listeners on mouse down.
  */
@@ -898,6 +918,7 @@ function onDocumentMouseDown(event) {
   document.addEventListener('mousemove', onDocumentMouseMove, false);
   document.addEventListener('mouseup', onDocumentMouseUp, false);
   document.addEventListener('mouseout', onDocumentMouseOut, false);
+
   var mouseX = event.clientX;
   var mouseY = event.clientY;
 
@@ -906,32 +927,32 @@ function onDocumentMouseDown(event) {
 
 }
 
-var loop = function () {
-
-    mMatrix = mat4.rotate(mMatrix, degToRad(1), [0,1,0]);
-
-    drawScene();
-
-		requestAnimationFrame(loop);
-
-	};
-
 /**
  * Calculates the mouse displacement on mouse move.
  */
 function onDocumentMouseMove(event) {
   var mouseX = event.clientX;
-  var mouseY = event.ClientY;
+  var mouseY = event.clientY;
   var diffX = mouseX - lastMouseX;
   var diffY = mouseY - lastMouseY;
 
-  Z_angle = diffX / 5;
+  var yaw_angle = diffX / 5;
+  var pitch_angle = diffY / 5;
 
   lastMouseX = mouseX;
   lastMouseY = mouseY;
 
+  if (yaw >= 360 || yaw <= -360) {
+    yaw = 0;
+    console.log("YES");
+  }
+
+  yaw = yaw - yaw_angle;
+  console.log(yaw);
+  pitch = pitch + pitch_angle;
+
   if (level == 1) {
-    mMatrix = mat4.rotate(mMatrix, degToRad(Z_angle), [0, 1, 1]); // now set up the model matrix
+    //mMatrix = mat4.rotate(mMatrix, degToRad(Z_angle), [0, 1, 0]); // now set up the model matrix
   } else if (level == 2) {
     mMatrix1 = mat4.rotate(mMatrix1, degToRad(Z_angle), [0, 1, 1]); // now set up the model matrix
   } else if (level == 3) {
@@ -940,3 +961,30 @@ function onDocumentMouseMove(event) {
 
   drawScene();
 }
+
+function texture(value) {
+    use_texture = value;
+    console.log(use_texture);
+    drawScene();
+
+}
+
+function switchTexture() {
+
+  if (switch_Texture == 1) {
+    switch_Texture = 2;
+  } else {
+    switch_Texture = 1;
+  }
+  drawScene();
+
+}
+
+var loop = function () {
+
+    mMatrix = mat4.rotate(mMatrix, degToRad(0.2), [0,1,1]);
+
+    drawScene();
+
+		requestAnimationFrame(loop);
+};

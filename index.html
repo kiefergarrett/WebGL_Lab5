@@ -12,11 +12,13 @@
   <!--  ************** Fragment Shader ************* -->
   <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float;
+    precision mediump int;
 
 uniform mat4 uMMatrix;
 uniform mat4 uVMatrix;
 uniform mat4 uPMatrix;
 uniform mat4 uNMatrix;
+uniform mat4 uV2WMatrix;
 
 uniform vec4 light_pos;
 uniform vec4 ambient_coef;
@@ -28,14 +30,24 @@ uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
 uniform vec4 light_specular;
 
+uniform int use_texture;
+uniform sampler2D myTexture;
+uniform samplerCube cubeMap;
+
+varying vec4 eye_pos;
 varying vec3 v_normal;
 varying vec3 v_pos;
+varying highp vec2 FtexCoord;
 
 void main(void) {
     vec3 normal = normalize(v_normal);
     vec3 lightDir = normalize(vec3(light_pos) - v_pos);
     vec3 reflectDir = reflect(-lightDir, v_normal);
     vec3 viewDir = normalize(-v_pos);
+
+    vec4 texcolor;
+    vec3 view_vector, ref;
+    vec4 env_color = vec4(1,0,0,1);
 
     float lambertian = max(dot(lightDir, normal), 0.0);
     float spec = 0.0;
@@ -49,23 +61,39 @@ void main(void) {
     vec4 diffuse = diffuse_coef * light_diffuse;
     vec4 specular = specular_coef * light_specular;
     vec4 color = ambient + lambertian * diffuse + spec * specular;
-    gl_FragColor = color;
+
+    if (use_texture == 1) {
+      texcolor = texture2D(myTexture, FtexCoord);
+      gl_FragColor = texcolor;
+    } else if (use_texture == 2) {
+      view_vector = normalize(vec3(vec4(0,0,0,1)-eye_pos));
+      ref = normalize(reflect(-view_vector, v_normal));  // in eye space
+	    ref = vec3(uV2WMatrix*vec4(ref,0));   // convert to world space
+      env_color = textureCube(cubeMap, ref);
+      gl_FragColor = env_color;
+    } else {
+      gl_FragColor = color;
+    }
 }
 </script>
 
   <!--  ************** Vertex Shader ************* -->
   <script id="shader-vs" type="x-shader/x-vertex">
     precision mediump float;
+    precision mediump int;
+
 attribute vec3 aVertexPosition;
 attribute vec3 aVertexNormal;
-
 attribute vec4 aVertexColor;
+attribute vec2 aVertexTexCoords;
+
 varying vec4 vColor;
 
 uniform mat4 uMMatrix;
 uniform mat4 uVMatrix;
 uniform mat4 uPMatrix;
 uniform mat4 uNMatrix;
+uniform mat4 uV2WMatrix;
 
 uniform vec4 light_pos;
 uniform vec4 ambient_coef;
@@ -76,15 +104,26 @@ uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
 uniform vec4 light_specular;
 
+uniform int use_texture;
+uniform sampler2D myTexture;
+
+varying vec4 eye_pos;
 varying vec3 v_normal;
 varying vec3 v_pos;
+varying highp vec2 FtexCoord;
 
 void main(void) {
+
+    vec4 light_pos_in_eye = light_pos;
+
+    eye_pos = uVMatrix*uMMatrix*vec4(aVertexPosition, 1.0);
 
     gl_Position = uPMatrix* uVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
     vec4 v_pos4 = uVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
     v_pos = vec3(v_pos4) / v_pos4.w;
     v_normal = vec3(uNMatrix * vec4(aVertexNormal, 0.0));
+
+    FtexCoord = aVertexTexCoords;
 
     vColor = aVertexColor;
 }
@@ -102,6 +141,11 @@ void main(void) {
   <canvas id="code04-canvas" style="border:none;" width="700" height="700"></canvas>
   <h3> Use 'W/w''A/a''S/s''D/d' to move the light foward, back, left, right (respectively). Use 'q' and 'e' to move light up and down (respectively). </h3>
   <h3> Use P/p, Y/y, R/r to controll pitch, yaw, and roll of camera.</h3>
+  <h4> Texture:  </h4>
+  <button  onclick="texture(0)"> NO  </button>
+  <button  onclick="texture(1)"> Regular </button>
+  <button  onclick="texture(2)"> Cubemap </button>
+  <button  onclick="switchTexture()"> Switch Texture </button>
   <h4> Background: </h4>
   <button onclick="BG(1,0,0)"> Red</button>
   <button onclick="BG(0,1,0)"> Green</button>
