@@ -18,7 +18,7 @@ var draw_type = 2;
 
 var brick = "https://kiefergarrett.github.io/WebGL_Lab5/brick.png";
 
-var garrettPic = "https://kiefergarrett.github.io/WebGL_Lab5/garrett.jpg";
+var garrettPic = "https://kiefergarrett.github.io/WebGL_Lab5/garrett2.jpg";
 var olivePic = "https://kiefergarrett.github.io/WebGL_Lab5/olive.jpg";
 
 var posx = "https://kiefergarrett.github.io/WebGL_Lab5/posx.jpg";
@@ -269,6 +269,8 @@ function handle2DTextureLoaded(texture) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
@@ -911,11 +913,11 @@ function drawScene() {
   drawSixWallEnv();
 
   use_texture = witney_Texture;
-  drawWitneyUmbrella(witneyMatrix, brickTexture);
+  drawWitneyUmbrella(witneyMatrix, posxWallTexture);
 
   use_texture = 1;
-  drawSquare(myPortraitM, oliveTexture);
-  drawSquare(olivePortraitM, garrettTexture);
+  drawSquare(myPortraitM, garrettTexture);
+  drawSquare(olivePortraitM, oliveTexture);
 
   use_texture = wall_Texture;
   var model = mat4.create();
@@ -1043,104 +1045,6 @@ function Level3() {
 
 function onKeyDown(event) {
   console.log(event.keyCode);
-  switch (event.keyCode) {
-    case 87:
-      if (event.shiftKey) { // Foward
-        console.log('enter W');
-        lz = lz + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      } else {
-        console.log('enter w');
-        lz = lz + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      }
-      break;
-    case 83:
-      if (event.shiftKey) { // Back
-        console.log('enter S');
-        lz = lz - 0.1;
-        light_pos = [lx, ly, lz, 1];
-      } else {
-        console.log('enter s');
-        lz = lz - 0.1;
-        light_pos = [lx, ly, lz, 1];
-      }
-      break;
-    case 65:
-      if (event.shiftKey) { // Left
-        console.log('enter A');
-        lx = lx - 0.1;
-        light_pos = [lx, ly, lz, 1];
-      } else {
-        console.log('enter a');
-        lx = lx - 0.1;
-        light_pos = [lx, ly, lz, 1];
-
-      }
-      break;
-    case 68:
-      if (event.shiftKey) { // Right
-        console.log('enter D');
-        lx = lx + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      } else {
-        console.log('enter d');
-        lx = lx + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      }
-      break;
-    case 81:
-      if (event.shiftKey) { // UP
-        console.log('enter Q');
-        ly = ly + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      } else {
-        console.log('enter q');
-        ly = ly + 0.1;
-        light_pos = [lx, ly, lz, 1];
-      }
-      break;
-    case 69:
-      if (event.shiftKey) { // Down
-        console.log('enter E');
-        ly = ly - 0.1;
-        light_pos = [lx, ly, lz, 1];
-
-      } else {
-        console.log('enter e');
-        ly = ly - 0.1;
-        light_pos = [lx, ly, lz, 1];
-      }
-      break;
-    case 80: // Pitch
-      if (event.shiftKey) {
-        console.log('enter P');
-        pitch = pitch + 0.5;
-      } else {
-        console.log('enter p');
-        pitch = pitch - 0.5;
-      }
-      break;
-    case 89: // Yaw
-      if (event.shiftKey) {
-        console.log('enter Y');
-        yaw = yaw - 0.5;
-      } else {
-        console.log('enter y');
-        yaw = yaw + 0.5;
-
-      }
-      break;
-    case 82: // Roll
-      if (event.shiftKey) {
-        console.log('enter R');
-        roll = roll + 0.5;
-      } else {
-        console.log('enter r');
-        roll = roll - 0.5;
-      }
-      break;
-  }
   drawScene();
 }
 
@@ -1251,6 +1155,7 @@ var loop = function () {
   }
 
     myPortraitM = mat4.rotate(myPortraitM, degToRad(0.1), [0,1,0]);
+    olivePortraitM = mat4.rotate(olivePortraitM, degToRad(-0.1), [0,1,0]);
 
   if (level == 1) {
     mat4.rotate(level1, degToRad(0.075), [0, 1, 1]);
