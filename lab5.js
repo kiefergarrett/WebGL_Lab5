@@ -16,6 +16,10 @@ var reset = 0;
 var draw_type = 2;
 
 var brick = "https://kiefergarrett.github.io/WebGL_Lab5/brick.png";
+
+var garrettPic = "https://kiefergarrett.github.io/WebGL_Lab5/garrett.jpg";
+var olivePic = "https://kiefergarrett.github.io/WebGL_Lab5/olive.jpg";
+
 var posx = "https://kiefergarrett.github.io/WebGL_Lab5/posx.jpg";
 var posy = "https://kiefergarrett.github.io/WebGL_Lab5/posy.jpg";
 var posz = "https://kiefergarrett.github.io/WebGL_Lab5/posz.jpg";
@@ -49,6 +53,9 @@ var negyWallTexture;
 var poszWallTexture;
 var negzWallTexture;
 
+var garrettTexture;
+var oliveTexture;
+
 
 /////////// Envornment Matrix Parameters ///////////////
 
@@ -61,7 +68,8 @@ var negzM = mat4.create();
 
 var witneyMatrix = mat4.create();
 
-var myPortrait = mat4.create();
+var myPortraitM = mat4.create();
+var olivePortraitM = mat4.create();
 
 var vMatrix = mat4.create(); // view matrix
 var pMatrix = mat4.create(); //projection matrix
@@ -122,6 +130,11 @@ function webGLStart() {
 
   initBuffers();
 
+  brickTexture = texture2D(brick);
+  
+  garrettTexture = texture2D(garrettPic);
+  oliveTexture = texture2D(olivePic);
+
   posxWallTexture = texture2D(posx);
   negxWallTexture = texture2D(negx);
   posyWallTexture = texture2D(posy);
@@ -172,7 +185,17 @@ function webGLStart() {
   mat4.rotate(witneyMatrix, degToRad(270), [1, 0, 0]);
   mat4.scale(witneyMatrix, [1,1,1]);
 
-  //drawScene();
+  mat4.identity(olivePortraitM);
+  mat4.translate(olivePortraitM, [5, 0, 0]);
+  mat4.rotate(olivePortraitM, degToRad(270), [0, 1, 0]);
+  mat4.scale(olivePortraitM, [1,1,1]);
+
+  mat4.identity(myPortraitM);
+  mat4.translate(myPortraitM, [5, 0, -5]);
+  mat4.rotate(myPortraitM, degToRad(270), [0, 1, 0]);
+  mat4.scale(myPortraitM, [1,1,1]);
+
+  drawScene();
 
 
   if (reset == 0) {
@@ -879,6 +902,10 @@ function drawScene() {
 
   use_texture = witney_Texture;
   drawWitneyUmbrella(witneyMatrix, posxWallTexture);
+
+  use_texture = wall_Texture;
+  drawSquare(myPortraitM, garrettTexture);
+  drawSquare(olivePortraitM, oliveTexture);
 }
 
 function drawSixWallEnv() {
