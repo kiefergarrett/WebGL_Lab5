@@ -11,6 +11,7 @@ var roll = 0;
 var use_texture = 2;
 var witney_Texture = 1;
 var wall_Texture = 1;
+var model_Texture = 1;
 
 var reset = 0;
 var draw_type = 2;
@@ -70,6 +71,10 @@ var witneyMatrix = mat4.create();
 
 var myPortraitM = mat4.create();
 var olivePortraitM = mat4.create();
+
+var level1 = mat4.create();
+var level2 = mat4.create();
+var level3 = mat4.create();
 
 var vMatrix = mat4.create(); // view matrix
 var pMatrix = mat4.create(); //projection matrix
@@ -186,14 +191,25 @@ function webGLStart() {
   mat4.scale(witneyMatrix, [1,1,1]);
 
   mat4.identity(olivePortraitM);
-  mat4.translate(olivePortraitM, [5, 0, 0]);
+  mat4.translate(olivePortraitM, [5, 0, 2]);
   mat4.rotate(olivePortraitM, degToRad(270), [0, 1, 0]);
-  mat4.scale(olivePortraitM, [1,1,1]);
+  mat4.scale(olivePortraitM, [3,3,3]);
 
   mat4.identity(myPortraitM);
-  mat4.translate(myPortraitM, [5, 0, -5]);
-  mat4.rotate(myPortraitM, degToRad(270), [0, 1, 0]);
-  mat4.scale(myPortraitM, [1,1,1]);
+  mat4.translate(myPortraitM, [5, 0, -3]);
+  mat4.rotate(myPortraitM, degToRad(90), [0, 1, 0]);
+  mat4.scale(myPortraitM, [3,3,3]);
+
+  mat4.identity(level1);
+  mat4.translate(level1, [0, 5, 5]);
+
+  mat4.identity(level2);
+  mat4.translate(level2, [7.5, 0, 0]);
+  mat4.scale(level2, [.75, .75, .75]);
+
+  mat4.identity(level3);
+  mat4.translate(level3, [5, 0, 0]);
+  mat4.scale(level3, [0.5, 0.5, 0.5]);
 
   drawScene();
 
@@ -891,21 +907,32 @@ function drawScene() {
   vMatrix = mat4.rotateY(vMatrix,degToRad(yaw));
   vMatrix = mat4.rotateX(vMatrix,degToRad(pitch));
 
-  //var model = mat4.create();
-  //mat4.identity(model);
-  //model = mat4.multiply(model, mMatrix);
-
-  console.log(use_texture);
-
   use_texture = wall_Texture;
   drawSixWallEnv();
 
   use_texture = witney_Texture;
-  drawWitneyUmbrella(witneyMatrix, posxWallTexture);
+  drawWitneyUmbrella(witneyMatrix, brickTexture);
 
   use_texture = wall_Texture;
-  drawSquare(myPortraitM, garrettTexture);
-  drawSquare(olivePortraitM, oliveTexture);
+  drawSquare(myPortraitM, oliveTexture);
+  drawSquare(olivePortraitM, garrettTexture);
+
+  var model = mat4.create();
+  mat4.identity(model);
+  model = mat4.multiply(model, level1);
+
+  drawCube(model, brickTexture);
+
+  model = mat4.multiply(model, level2);
+
+  drawCube(model, brickTexture);
+
+  model = mat4.multiply(model, level3);
+
+  drawCube(model, brickTexture);
+
+
+  
 }
 
 function drawSixWallEnv() {
@@ -1182,13 +1209,18 @@ function texture(value) {
     draw_type = 1;
   } else if (value == 1) {
     draw_type = 2;
-  } else if (value == 2) {
     witney_Texture = 0;
     wall_Texture = 0;
+    model_Texture = 0;
+  } else if (value == 2) {
+    witney_Texture = 1;
+    wall_Texture = 1;
+    model_Texture = 1;
   } else if (value == 3) {
     witney_Texture = 2;
-    wall_Texture = 1;
-  }
+    wall_Texture = 2;
+    model_Texture = 2;
+  } 
 
   drawScene();
 
@@ -1215,6 +1247,17 @@ var loop = function () {
 
   if (witneyIsRotating == 1) {
     witneyMatrix = mat4.rotate(witneyMatrix, degToRad(0.5), [0,1,1]);
+  }
+
+  if (level == 1) {
+    mat4.rotate(level1, degToRad(0.075), [0, 1, 1]);
+    mat4.rotate(level2, degToRad(0.3), [1,0,1]);
+    mat4.rotate(level3, degToRad(0.5), [1, 1, 0]);
+  } else if (level == 2) {
+    mat4.rotate(level2, degToRad(0.3), [1, 0, 1]);
+    mat4.rotate(level3, degToRad(0.5), [1, 1, 0]);
+  } else if (level == 3) {
+    mat4.rotate(level3, degToRad(0.5), [1, 1, 0]);
   }
 
   drawScene();

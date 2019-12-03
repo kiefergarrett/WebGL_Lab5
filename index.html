@@ -141,9 +141,9 @@ void main(void) {
   <canvas id="code04-canvas" style="border:none;" width="700" height="700"></canvas>
   <h3> Render Mode:  </h3>
   <button  onclick="texture(0)"> Line Mode  </button>
-  <button  onclick="texture(1)"> Triangle Mode ON</button>
-  <button  onclick="texture(2)"> Texture Mode OFF</button>
-  <button  onclick="texture(3)"> Texture Mode ON</button>
+  <button  onclick="texture(1)"> Triangle Mode</button>
+  <button  onclick="texture(2)"> 2D Texture Mode</button>
+  <button  onclick="texture(3)"> Cubemap Texture Mode</button>
 
   <h3>Object Motion Controls:</h3>
   <table cellspacing = "15">
@@ -161,13 +161,13 @@ void main(void) {
             <table>
               <tr>
                 <td>
-                    <button onclick="Level(1)"> Level 1 Animate</button>
+                    <button onclick="Level1()"> Level 1 Animate</button>
                 </td>
                 <td>
-                    <button onclick="Level(2)"> Level 2 Animate</button>
+                    <button onclick="Level2()"> Level 2 Animate</button>
                 </td>
                 <td>
-                    <button onclick="Level(3)"> Level 3 Animate</button>
+                    <button onclick="Level3()"> Level 3 Animate</button>
                 </td>
               </tr>
             </table>
