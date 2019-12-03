@@ -192,13 +192,13 @@ function webGLStart() {
 
   mat4.identity(olivePortraitM);
   mat4.translate(olivePortraitM, [5, 0, 2]);
-  mat4.rotate(olivePortraitM, degToRad(270), [0, 1, 0]);
-  mat4.scale(olivePortraitM, [3,3,3]);
+  mat4.rotate(olivePortraitM, degToRad(90), [0, 1, 0]);
+  mat4.scale(olivePortraitM, [-3,3,3]);
 
   mat4.identity(myPortraitM);
   mat4.translate(myPortraitM, [5, 0, -3]);
-  mat4.rotate(myPortraitM, degToRad(90), [0, 1, 0]);
-  mat4.scale(myPortraitM, [3,3,3]);
+  mat4.rotate(myPortraitM, degToRad(270), [0, 1, 0]);
+  mat4.scale(myPortraitM, [-3,3,3]);
 
   mat4.identity(level1);
   mat4.translate(level1, [0, 5, 5]);
@@ -913,10 +913,11 @@ function drawScene() {
   use_texture = witney_Texture;
   drawWitneyUmbrella(witneyMatrix, brickTexture);
 
-  use_texture = wall_Texture;
+  use_texture = 1;
   drawSquare(myPortraitM, oliveTexture);
   drawSquare(olivePortraitM, garrettTexture);
 
+  use_texture = wall_Texture;
   var model = mat4.create();
   mat4.identity(model);
   model = mat4.multiply(model, level1);
@@ -1248,6 +1249,8 @@ var loop = function () {
   if (witneyIsRotating == 1) {
     witneyMatrix = mat4.rotate(witneyMatrix, degToRad(0.5), [0,1,1]);
   }
+
+    myPortraitM = mat4.rotate(myPortraitM, degToRad(0.1), [0,1,0]);
 
   if (level == 1) {
     mat4.rotate(level1, degToRad(0.075), [0, 1, 1]);
