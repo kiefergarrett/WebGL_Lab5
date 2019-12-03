@@ -139,32 +139,51 @@ void main(void) {
 
 <body onload="webGLStart();">
   <canvas id="code04-canvas" style="border:none;" width="700" height="700"></canvas>
-  <h3> Use 'W/w''A/a''S/s''D/d' to move the light foward, back, left, right (respectively). Use 'q' and 'e' to move light up and down (respectively). </h3>
-  <h3> Use P/p, Y/y, R/r to controll pitch, yaw, and roll of camera.</h3>
-  <h4> Texture:  </h4>
-  <button  onclick="texture(0)"> NO  </button>
-  <button  onclick="texture(1)"> Regular </button>
-  <button  onclick="texture(2)"> Cubemap </button>
-  <button  onclick="switchTexture()"> Switch Texture </button>
-  <h4> Background: </h4>
-  <button onclick="BG(1,0,0)"> Red</button>
-  <button onclick="BG(0,1,0)"> Green</button>
-  <button onclick="BG(0,0,1)"> Blue</button>
-  <button onclick="BG(0.5,0.5,0.5)"> Grey</button>
-  <button onclick="BG(0,0,0)"> Black</button>
-  <button onclick="BG(1,1,1)"> White</button>
+  <h3> Render Mode:  </h3>
+  <button  onclick="texture(0)"> Line Mode  </button>
+  <button  onclick="texture(1)"> Triangle Mode ON</button>
+  <button  onclick="texture(2)"> Texture Mode OFF</button>
+  <button  onclick="texture(3)"> Texture Mode ON</button>
 
-  <div>
-    <h4>
-      Object Rotation Controls
-    </h4>
-    <p>
-      Object Hierarchy
-    </p>
-    <button onclick="Level1()"> Level 1 </button>
-    <button onclick="Level2()"> Level 2 </button>
-    <button onclick="Level3()"> Level 3 </button>
-  </div>
+  <h3>Object Motion Controls:</h3>
+  <table cellspacing = "15">
+    <thead>
+      <th>Witney's Umbrella</th>
+      <th>Hierarchical Model</th>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <button onclick="rotateWitney()"> Toggle Witney's Umbrella Rotation</button>
+          <button  onclick="witneySwitchTexture()"> Switch Texture </button>
+        </td>
+        <td>
+            <table>
+              <tr>
+                <td>
+                    <button onclick="Level(1)"> Level 1 Animate</button>
+                </td>
+                <td>
+                    <button onclick="Level(2)"> Level 2 Animate</button>
+                </td>
+                <td>
+                    <button onclick="Level(3)"> Level 3 Animate</button>
+                </td>
+              </tr>
+            </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <hr>
+
+  <h4> Background:  </h4>
+  <button  onclick="BG(1,0,0)"> Red</button>
+  <button  onclick="BG(0,1,0)"> Green</button>
+  <button  onclick="BG(0,0,1)"> Blue</button>
+  <button  onclick="BG(0.5,0.5,0.5)"> Grey</button>
+  <button  onclick="BG(0,0,0)"> Black</button>
+  <button  onclick="BG(1,1,1)"> White</button>
 
   <div>
     <h4>

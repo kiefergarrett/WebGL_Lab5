@@ -1,23 +1,19 @@
 var gl;
 var shaderProgram;
 
-var zCameraPos = 10;
-var horizontalAngle = 0;
-var verticalAngle = 0;
-var rotationSpeed = 4;
-var xAngle = 0;
-var yAngle = 0;
-var zAngle = 0;
 var cubeScale = 1;
 var level = 1;
-var lastXRotate = 0;
-var lastYRotate = 0;
-var lastYRotate = 0;
+
 var pitch = 0;
 var yaw = 0;
 var roll = 0;
-var use_texture = 0;
-var switch_Texture = 1;
+
+var use_texture = 2;
+var witney_Texture = 1;
+var wall_Texture = 1;
+
+var reset = 0;
+var draw_type = 2;
 
 var brick = "https://kiefergarrett.github.io/WebGL_Lab5/brick.png";
 var posx = "https://kiefergarrett.github.io/WebGL_Lab5/posx.jpg";
@@ -53,7 +49,8 @@ var negyWallTexture;
 var poszWallTexture;
 var negzWallTexture;
 
-/////////// Scene Matrix Parameters ///////////////
+
+/////////// Envornment Matrix Parameters ///////////////
 
 var posxM = mat4.create();
 var posyM = mat4.create();
@@ -62,8 +59,10 @@ var negxM = mat4.create();
 var negyM = mat4.create();
 var negzM = mat4.create();
 
-var envMatrix = mat4.create();
-var mMatrix = mat4.create();
+var witneyMatrix = mat4.create();
+
+var myPortrait = mat4.create();
+
 var vMatrix = mat4.create(); // view matrix
 var pMatrix = mat4.create(); //projection matrix
 var nMatrix = mat4.create(); // normal matrix
@@ -138,49 +137,54 @@ function webGLStart() {
   document.addEventListener('keydown', onKeyDown, false);
 
   mat4.identity(posxM);
-  mat4.translate(posxM, [7.5, 0, 0]);
+  mat4.translate(posxM, [50, 0, 0]);
   mat4.rotate(posxM, degToRad(270), [0, 1, 0]);
-  mat4.scale(posxM, [15, 15, 15]);
+  mat4.scale(posxM, [100, 100, 100]);
 
   mat4.identity(posyM);
-  mat4.translate(posyM, [0, 7.5, 0]);
+  mat4.translate(posyM, [0, 50, 0]);
   mat4.rotate(posyM, degToRad(270), [1, 0, 0]);
   mat4.rotate(posyM, degToRad(180), [0, 1, 0]);
-  mat4.scale(posyM, [15, 15, 15]);
+  mat4.scale(posyM, [100, 100, 100]);
 
   mat4.identity(poszM);
-  mat4.translate(poszM, [0, 0, 7.5]);
+  mat4.translate(poszM, [0, 0, 50]);
   mat4.rotate(poszM, degToRad(180), [0, 1, 0]);
-  mat4.scale(poszM, [15, 15, 15]);
+  mat4.scale(poszM, [100, 100, 100]);
 
   mat4.identity(negxM);
-  mat4.translate(negxM, [-7.5, 0, 0]);
+  mat4.translate(negxM, [-50, 0, 0]);
   mat4.rotate(negxM, degToRad(90), [0, 1, 0]);
-  mat4.scale(negxM, [15, 15, 15]);
+  mat4.scale(negxM, [100, 100, 100]);
 
   mat4.identity(negyM);
-  mat4.translate(negyM, [0, -7.5, 0]);
+  mat4.translate(negyM, [0, -50, 0]);
   mat4.rotate(negyM, degToRad(90), [1, 0, 0]);
   mat4.rotate(negyM, degToRad(180), [0, 1, 0]);
-  mat4.scale(negyM, [15, 15, 15]);
+  mat4.scale(negyM, [100, 100, 100]);
 
   mat4.identity(negzM);
-  mat4.translate(negzM, [0, 0, -7.5]);
-  mat4.scale(negzM, [15, 15, 15]);
+  mat4.translate(negzM, [0, 0, -50]);
+  mat4.scale(negzM, [100, 100, 100]);
 
-  mat4.identity(mMatrix);
-  mat4.translate(mMatrix, [0, 0, -5]);
-  mat4.scale(mMatrix, [1,1,1]);
+  mat4.identity(witneyMatrix);
+  mat4.translate(witneyMatrix, [0, 0, -10]);
+  mat4.rotate(witneyMatrix, degToRad(270), [1, 0, 0]);
+  mat4.scale(witneyMatrix, [1,1,1]);
 
-  drawScene();
+  //drawScene();
 
-  requestAnimationFrame(loop);
+
+  if (reset == 0) {
+    requestAnimationFrame(loop);
+  }
 }
 
 function initBuffers() {
 
   initSQBuffers();
   initCubeBuffers();
+  initWitneyUmbBuffers();
 
 }
 
@@ -380,8 +384,19 @@ function initSQBuffers() {
 }
 
 function drawSquare(matrix, texture) {
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, matrix);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
 
-  var mat_diffuse = [1, 0, 1, 1];
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  var mat_diffuse = [0, 1, 0, 1];
   gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
   gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
   gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
@@ -418,7 +433,196 @@ function drawSquare(matrix, texture) {
   gl.bindTexture(gl.TEXTURE_2D, texture);    // bind the texture object to the texture unit
   gl.uniform1i(shaderProgram.textureUniform, 0);   // pass the texture unit to the shader
 
-  gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+  if (draw_type ==1) gl.drawArrays(gl.LINE_LOOP, 0, squareVertexPositionBuffer.numItems);	
+	else if (draw_type==2) gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems , gl.UNSIGNED_SHORT, 0);	
+}
+
+var witneyVerts = [];
+var witneyNormals = [];
+var witneyIndices = [];
+var witneyColors = [];
+var witneyTexCoords = [];
+
+function initWitneysUmbrella(minV, maxV, minU, maxU, step) {
+
+  var iRange = (maxV - minV) / step;
+  var jRange = (maxU - minU) / step;
+  
+  for (var u = minU; u <= maxU; u = u + step) {
+    for(var v = minV; v <= maxV; v = v + step) {
+      var x = v * u;
+      var y = u;
+      var z = v * v;
+
+      var tx = u;
+      var ty = 1;
+      var tz = 0;
+
+      var sx = v;
+      var sy = 0;
+      var sz = 2 * v;
+
+      var nx = ty * sz - tz * sy;
+      var ny = tz * sx - tx * sz;
+      var nz = tx * sy - ty * sx;
+
+
+      var length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+
+
+
+      if (length != 0) {
+        nx /= length;
+        ny /= length;
+        nz /= length;
+      }
+
+
+      witneyVerts.push(x);
+      witneyVerts.push(y);
+      witneyVerts.push(z);
+
+      witneyNormals.push(nx);
+      witneyNormals.push(ny);
+      witneyNormals.push(nz);
+
+      witneyColors.push(x);
+      witneyColors.push(y);
+      witneyColors.push(z);
+      witneyColors.push(1.0);
+
+      witneyTexCoords.push(0.0);
+      witneyTexCoords.push(0.0);
+
+      witneyTexCoords.push(1.0);
+      witneyTexCoords.push(0.0);
+
+      witneyTexCoords.push(1.0);
+      witneyTexCoords.push(1.0);
+
+      witneyTexCoords.push(0.0);
+      witneyTexCoords.push(1.0);
+      
+
+    }
+  }
+
+  for (var i = 0; i < iRange; i++) {
+    for (var j = 0; j < jRange; j++) {
+      var v1 = (i * (iRange + 1) + j);
+      var v2 = v1 + jRange + 1;
+
+      witneyIndices.push(v1);
+      witneyIndices.push(v2);
+      witneyIndices.push(v1 + 1);
+
+      witneyIndices.push(v2);
+      witneyIndices.push(v2 + 1);
+      witneyIndices.push(v1 + 1);
+    }
+  }
+}
+
+var witneyVertexPositionBuffer;
+var witneyVertexNormalBuffer;
+var witneyVertexTexCoordsBuffer;
+var witneyVertexIndexBuffer;
+var witneyVertexColorBuffer;
+
+
+function initWitneyUmbBuffers() {
+  var minV = -2;
+  var maxV = 2;
+  var minU = -2;
+  var maxU = 2;
+  var step = 0.5;
+
+  initWitneysUmbrella(minV, maxV, minU, maxU, step);
+
+  witneyVertexPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(witneyVerts), gl.STATIC_DRAW);
+  witneyVertexPositionBuffer.itemSize = 3;
+  witneyVertexPositionBuffer.numItems = witneyVerts.length / 3;
+
+  witneyVertexNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexNormalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(witneyNormals), gl.STATIC_DRAW);
+  witneyVertexNormalBuffer.itemSize = 3;
+  witneyVertexNormalBuffer.numItems = witneyNormals.length / 3;
+
+  witneyVertexTexCoordsBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexTexCoordsBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(witneyTexCoords), gl.STATIC_DRAW);
+  witneyVertexTexCoordsBuffer.itemSize = 2;
+  witneyVertexTexCoordsBuffer.numItems = witneyTexCoords.length / 2;
+
+	witneyVertexIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, witneyVertexIndexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(witneyIndices), gl.STATIC_DRAW);
+  witneyVertexIndexBuffer.itemsize = 1;
+  witneyVertexIndexBuffer.numItems = witneyIndices.length;
+
+  witneyVertexColorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexColorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(witneyColors), gl.STATIC_DRAW);
+  witneyVertexColorBuffer.itemSize = 4;
+  witneyVertexColorBuffer.numItems = witneyColors / 4;
+  
+}
+
+function drawWitneyUmbrella(matrix, texture) {
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, matrix);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  var mat_diffuse = [1, 0, 1, 1];
+  gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
+  gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.specular_coefUniform, mat_specular[0], mat_specular[1], mat_specular[2], 1.0);
+  gl.uniform1f(shaderProgram.shininess_coefUniform, mat_shine[0]);
+
+  gl.uniform4f(shaderProgram.light_ambientUniform, light_ambient[0], light_ambient[1], light_ambient[2], 1.0);
+  gl.uniform4f(shaderProgram.light_diffuseUniform, light_diffuse[0], light_diffuse[1], light_diffuse[2], 1.0);
+  gl.uniform4f(shaderProgram.light_specularUniform, light_specular[0], light_specular[1], light_specular[2], 1.0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexPositionBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, witneyVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexNormalBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, witneyVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexTexCoordsBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexTexCoordsAttribute, witneyVertexTexCoordsBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, witneyVertexColorBuffer);
+  gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, witneyVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+  // draw elementary arrays - triangle indices
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, witneyVertexIndexBuffer);
+
+  setMatrixUniforms(matrix); // pass the modelview mattrix and projection matrix to the shader
+  gl.uniform1i(shaderProgram.use_textureUniform, use_texture);
+
+  gl.activeTexture(gl.TEXTURE1);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTexture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.cube_map_textureUniform, 1);   // pass the texture unit to the shader
+
+  gl.activeTexture(gl.TEXTURE0);   // set texture unit 0 to use
+  gl.bindTexture(gl.TEXTURE_2D, texture);    // bind the texture object to the texture unit
+  gl.uniform1i(shaderProgram.textureUniform, 0);   // pass the texture unit to the shader
+
+  if (draw_type ==1) gl.drawArrays(gl.LINE_LOOP, 0, witneyVertexPositionBuffer.numItems);	
+	else if (draw_type==2) gl.drawElements(gl.TRIANGLES, witneyVertexIndexBuffer.numItems , gl.UNSIGNED_SHORT, 0);
 }
 
 ////////////////    Initialize VBO  ////////////////////////
@@ -596,7 +800,19 @@ function initCubeBuffers() {
 }
 
 function drawCube(matrix, texture) {
-  var mat_diffuse = [1, 0, 1, 1];
+  mat4.identity(nMatrix);
+  nMatrix = mat4.multiply(nMatrix, vMatrix);
+  nMatrix = mat4.multiply(nMatrix, matrix);
+  nMatrix = mat4.inverse(nMatrix);
+  nMatrix = mat4.transpose(nMatrix);
+
+  mat4.identity(v2wMatrix);
+  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
+  v2wMatrix = mat4.transpose(v2wMatrix);
+
+  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
+
+  var mat_diffuse = [1, 0, 0, 1];
   gl.uniform4f(shaderProgram.light_posUniform, light_pos[0], light_pos[1], light_pos[2], light_pos[3]);
   gl.uniform4f(shaderProgram.ambient_coefUniform, mat_ambient[0], mat_ambient[1], mat_ambient[2], 1.0);
   gl.uniform4f(shaderProgram.diffuse_coefUniform, mat_diffuse[0], mat_diffuse[1], mat_diffuse[2], 1.0);
@@ -633,7 +849,8 @@ function drawCube(matrix, texture) {
   gl.bindTexture(gl.TEXTURE_2D, texture);    // bind the texture object to the texture unit
   gl.uniform1i(shaderProgram.textureUniform, 0);   // pass the texture unit to the shader
 
-  gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+  if (draw_type ==1) gl.drawArrays(gl.LINE_LOOP, 0, cubeVertexPositionBuffer.numItems);	
+	else if (draw_type==2) gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems , gl.UNSIGNED_SHORT, 0);
 }
 
 var Z_angle = 0.0;
@@ -655,21 +872,13 @@ function drawScene() {
   //mat4.identity(model);
   //model = mat4.multiply(model, mMatrix);
 
+  console.log(use_texture);
+
+  use_texture = wall_Texture;
   drawSixWallEnv();
 
-  mat4.identity(nMatrix);
-  nMatrix = mat4.multiply(nMatrix, vMatrix);
-  nMatrix = mat4.multiply(nMatrix, mMatrix);
-  nMatrix = mat4.inverse(nMatrix);
-  nMatrix = mat4.transpose(nMatrix);
-
-  mat4.identity(v2wMatrix);
-  v2wMatrix = mat4.multiply(v2wMatrix, vMatrix);
-  v2wMatrix = mat4.transpose(v2wMatrix);
-
-  shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-
-  drawCube(mMatrix, posxWallTexture);
+  use_texture = witney_Texture;
+  drawWitneyUmbrella(witneyMatrix, posxWallTexture);
 }
 
 function drawSixWallEnv() {
@@ -686,8 +895,6 @@ function drawSixWallEnv() {
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  use_texture = switch_Texture;
-
   drawSquare(posxM, posxWallTexture);
 
   mat4.identity(nMatrix);
@@ -701,8 +908,6 @@ function drawSixWallEnv() {
   v2wMatrix = mat4.transpose(v2wMatrix);
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-
-  use_texture = switch_Texture;
 
   drawSquare(posyM, posyWallTexture);
 
@@ -718,8 +923,6 @@ function drawSixWallEnv() {
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  use_texture = switch_Texture;
-
   drawSquare(poszM, poszWallTexture);
 
   mat4.identity(nMatrix);
@@ -733,8 +936,6 @@ function drawSixWallEnv() {
   v2wMatrix = mat4.transpose(v2wMatrix);
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-
-  use_texture = switch_Texture;
 
   drawSquare(negxM, negxWallTexture);
 
@@ -750,8 +951,6 @@ function drawSixWallEnv() {
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
 
-  use_texture = switch_Texture;
-
   drawSquare(negyM, negyWallTexture);
 
   mat4.identity(nMatrix);
@@ -765,8 +964,6 @@ function drawSixWallEnv() {
   v2wMatrix = mat4.transpose(v2wMatrix);
 
   shaderProgram.light_posUniform = gl.getUniformLocation(shaderProgram, "light_pos");
-
-  use_texture = switch_Texture;
 
   drawSquare(negzM, negzWallTexture);
 
@@ -944,37 +1141,44 @@ function onDocumentMouseMove(event) {
 
   if (yaw >= 360 || yaw <= -360) {
     yaw = 0;
-    console.log("YES");
   }
 
   yaw = yaw - yaw_angle;
-  console.log(yaw);
   pitch = pitch + pitch_angle;
-
-  if (level == 1) {
-    //mMatrix = mat4.rotate(mMatrix, degToRad(Z_angle), [0, 1, 0]); // now set up the model matrix
-  } else if (level == 2) {
-    mMatrix1 = mat4.rotate(mMatrix1, degToRad(Z_angle), [0, 1, 1]); // now set up the model matrix
-  } else if (level == 3) {
-    mMatrix2 = mat4.rotate(mMatrix2, degToRad(Z_angle), [0, 1, 1]); // now set up the model matrix
-  }
 
   drawScene();
 }
 
 function texture(value) {
-    use_texture = value;
-    console.log(use_texture);
-    drawScene();
+
+  if (value == 0) {
+    draw_type = 1;
+  } else if (value == 1) {
+    draw_type = 2;
+  } else if (value == 2) {
+    witney_Texture = 0;
+    wall_Texture = 0;
+  } else if (value == 3) {
+    witney_Texture = 2;
+    wall_Texture = 1;
+  }
+
+  drawScene();
 
 }
 
-function switchTexture() {
+function redraw() {
 
-  if (switch_Texture == 1) {
-    switch_Texture = 2;
+  reset = 1;
+  webGLStart();
+}
+
+function witneySwitchTexture() {
+
+  if (witney_Texture == 1) {
+    witney_Texture = 2;
   } else {
-    switch_Texture = 1;
+    witney_Texture = 1;
   }
   drawScene();
 
@@ -982,9 +1186,21 @@ function switchTexture() {
 
 var loop = function () {
 
-    mMatrix = mat4.rotate(mMatrix, degToRad(0.2), [0,1,1]);
+  if (witneyIsRotating == 1) {
+    witneyMatrix = mat4.rotate(witneyMatrix, degToRad(0.5), [0,1,1]);
+  }
 
-    drawScene();
+  drawScene();
 
-		requestAnimationFrame(loop);
+	requestAnimationFrame(loop);
 };
+
+var witneyIsRotating = 1;
+
+function rotateWitney() {
+  if (witneyIsRotating == 1) {
+    witneyIsRotating = 0;
+  } else {
+    witneyIsRotating = 1;
+  }
+}
